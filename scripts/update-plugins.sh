@@ -7,6 +7,7 @@ REPOS=(
   "Cody292/quota-activation|quota-activation|zip"
   "rheodev/cpa-plugin-privacyfilter|privacyfilter|zip"
   "zhangziming1124/cpa-apply-patch|cpa-apply-patch|so"
+  "1296018244/grok-manager|grok-manager|so"
 )
 
 echo "{" > plugins.json
