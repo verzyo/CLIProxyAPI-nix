@@ -103,7 +103,7 @@
 
           sourceRoot = ".";
 
-          nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.isLinux [
+          nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
             pkgs.autoPatchelfHook
             pkgs.stdenv.cc.cc.lib
           ];
@@ -166,7 +166,7 @@
       # Overlay for use with nixpkgs
       overlays.default = final: prev:
         builtins.mapAttrs (name: edition:
-          self.packages.${prev.system}.${name}
+          self.packages.${prev.stdenv.hostPlatform.system}.${name}
         ) distributableEditions;
     };
 }
