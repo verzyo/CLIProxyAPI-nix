@@ -54,6 +54,14 @@ in
       '';
     };
 
+    lib.cliproxyapi = {
+      injectSecret = lib.mkOption {
+        type = lib.types.unspecified;
+        readOnly = true;
+        description = "Helper function to securely inject file-based secrets into the settings.";
+      };
+    };
+
     plugins = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [];
@@ -154,6 +162,8 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    lib.cliproxyapi.injectSecret = path: "@@SECRET:${toString path}@@";
+
     assertions = [
       {
         assertion = cfg.storage.type != "git" || cfg.storage.git.url != null;
@@ -250,9 +260,11 @@ in
           fi
 
           ${if cfg.settings != { } then ''
-            ln -sf ${(pkgs.formats.yaml { }).generate "cliproxyapi-config.yaml" cfg.settings} ${cfg.dataDir}/config.yaml
+            cp -f ${(pkgs.formats.yaml { }).generate "cliproxyapi-config.yaml" cfg.settings} ${cfg.dataDir}/config.yaml
+            chmod 600 ${cfg.dataDir}/config.yaml
           '' else if cfg.configFile != null then ''
-            ln -sf ${cfg.configFile} ${cfg.dataDir}/config.yaml
+            cp -f ${cfg.configFile} ${cfg.dataDir}/config.yaml
+            chmod 600 ${cfg.dataDir}/config.yaml
           '' else ''
             if [ ! -f ${cfg.dataDir}/config.yaml ] && [ "${cfg.storage.type}" = "local" ]; then
               if [ -f ${cfg.package}/share/cliproxyapi/config.example.yaml ]; then
@@ -261,6 +273,17 @@ in
               fi
             fi
           ''}
+
+          if [ -f ${cfg.dataDir}/config.yaml ]; then
+            grep -oE '@@SECRET:[^@]+@@' ${cfg.dataDir}/config.yaml | sort -u | while read -r match; do
+              secret_path="''${match#@@SECRET:}"
+              secret_path="''${secret_path%@@}"
+              if [ -f "$secret_path" ]; then
+                secret_val=$(cat "$secret_path")
+                sed -i "s|$match|$secret_val|g" ${cfg.dataDir}/config.yaml
+              fi
+            done
+          fi
 
           ${lib.optionalString (cfg.plugins != []) ''
             if [ -d "${cfg.dataDir}/plugins" ] && [ ! -L "${cfg.dataDir}/plugins" ]; then
