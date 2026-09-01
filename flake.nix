@@ -157,6 +157,12 @@
         default = self.darwinModules.cliproxyapi;
       };
 
+      # Home Manager module
+      homeModules = {
+        cliproxyapi = import ./modules/home-manager.nix self;
+        default = self.homeModules.cliproxyapi;
+      };
+
       # Overlay for use with nixpkgs
       overlays.default = final: prev:
         builtins.mapAttrs (name: edition:
