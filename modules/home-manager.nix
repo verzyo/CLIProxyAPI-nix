@@ -54,6 +54,12 @@ in
       '';
     };
 
+    plugins = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [];
+      description = "List of plugins to install (must exist in plugins.json)";
+    };
+
     storage = {
       type = lib.mkOption {
         type = lib.types.enum [ "local" "git" "postgres" "s3" ];
@@ -185,6 +191,37 @@ in
       };
 
       Service = let
+        pluginData = lib.importJSON ../plugins.json;
+        pluginEnv = pkgs.symlinkJoin {
+          name = "cliproxyapi-plugins";
+          paths = map (name: 
+            let
+              data = pluginData.${name} or (throw "Plugin ''${name} not found in plugins.json");
+              src = if data.format == "zip" then
+                pkgs.fetchzip {
+                  url = data.url;
+                  hash = data.hash;
+                  stripRoot = false;
+                }
+              else
+                pkgs.fetchurl {
+                  url = data.url;
+                  hash = data.hash;
+                };
+            in
+            if data.format == "zip" then
+              pkgs.runCommand "${name}-plugin" {} ''
+                mkdir -p $out/plugins/linux/amd64
+                cp ${src}/*.so $out/plugins/linux/amd64/
+              ''
+            else
+              pkgs.runCommand "${name}-plugin" {} ''
+                mkdir -p $out/plugins/linux/amd64
+                cp ${src} $out/plugins/linux/amd64/${name}.so
+              ''
+          ) cfg.plugins;
+        };
+
         storageEnv = {
           "local" = { };
           "git" = {
@@ -223,6 +260,17 @@ in
                 chmod 600 ${cfg.dataDir}/config.yaml
               fi
             fi
+          ''}
+
+          ${lib.optionalString (cfg.plugins != []) ''
+            if [ -d "${cfg.dataDir}/plugins" ] && [ ! -L "${cfg.dataDir}/plugins" ]; then
+              mv "${cfg.dataDir}/plugins" "${cfg.dataDir}/plugins.backup-$(date +%s)"
+            fi
+            
+            rm -rf "${cfg.dataDir}/plugins"
+            mkdir -p "${cfg.dataDir}/plugins/linux/amd64"
+            cp -L ${pluginEnv}/plugins/linux/amd64/* "${cfg.dataDir}/plugins/linux/amd64/"
+            chmod 755 "${cfg.dataDir}/plugins/linux/amd64"/*.so
           ''}
         '';
 

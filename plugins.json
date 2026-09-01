@@ -1,0 +1,31 @@
+{
+  "antigravity-coding-filter": {
+    "url": "https://github.com/jellyfish-p/cpa-plugin-antigravity-coding-filter/releases/download/v0.2.0/antigravity-coding-filter_0.2.0_linux_amd64.zip",
+    "hash": "sha256-Ql3T+bbpu/8z8vemSzZKzLZ/MBT45mqTIwB0AnsninY=",
+    "format": "zip"
+  }
+,
+  "antigravity-priority": {
+    "url": "https://github.com/ygq-future/antigravity-priority/releases/download/v1.2.14/antigravity-priority_1.2.14_linux_amd64.zip",
+    "hash": "sha256-vDhY8Nv51O4chL5BFVDCY/hHYDgGngbe0VxdPT7kurE=",
+    "format": "zip"
+  }
+,
+  "quota-activation": {
+    "url": "https://github.com/Cody292/quota-activation/releases/download/v0.0.7/quota-activation_0.0.7_linux_amd64.zip",
+    "hash": "sha256-AG5FnPBBhfcMkjTXGJrTTx4zALTDX3NAkKUM8C4yARY=",
+    "format": "zip"
+  }
+,
+  "privacyfilter": {
+    "url": "https://github.com/rheodev/cpa-plugin-privacyfilter/releases/download/v0.2.0/privacyfilter_0.2.0_linux_amd64.zip",
+    "hash": "sha256-TMtMGgSVDDWoCeMHST0O/SodnSKpRl5apVwQpC3LIvw=",
+    "format": "zip"
+  }
+,
+  "cpa-apply-patch": {
+    "url": "https://github.com/zhangziming1124/cpa-apply-patch/releases/download/v0.4.4/cpa-apply-patch-v0.4.4.so",
+    "hash": "sha256-ya22OYPiG8negxzvRkZfA6WT4A2GqxZ15Pko4vZao7Y=",
+    "format": "so"
+  }
+}
