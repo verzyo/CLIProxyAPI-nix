@@ -253,6 +253,7 @@ in
 
         preStartScript = pkgs.writeShellScript "cliproxyapi-prestart" ''
           mkdir -p ${cfg.dataDir}
+          mkdir -p ${cfg.dataDir}/tmp
 
           if [ -f ${cfg.package}/share/cliproxyapi/config.example.yaml ]; then
             cp -f ${cfg.package}/share/cliproxyapi/config.example.yaml ${cfg.dataDir}/config.example.yaml
@@ -324,10 +325,11 @@ in
         ExecStart = "${execScript}";
         Restart = "on-failure";
         RestartSec = 5;
-        Environment = lib.mapAttrsToList (k: v: "${k}=${toString v}") (storageEnv // cfg.extraEnvironment);
+        Environment = lib.mapAttrsToList (k: v: "${k}=${toString v}") ({ TMPDIR = "${cfg.dataDir}/tmp"; } // storageEnv // cfg.extraEnvironment);
 
         NoNewPrivileges = true;
         ProtectSystem = "strict";
+        ReadWritePaths = [ cfg.dataDir ];
       };
     };
   };
