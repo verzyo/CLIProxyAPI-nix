@@ -287,10 +287,6 @@ in
           fi
 
           ${lib.optionalString (cfg.plugins != []) ''
-            if [ -d "${cfg.dataDir}/plugins" ] && [ ! -L "${cfg.dataDir}/plugins" ]; then
-              mv "${cfg.dataDir}/plugins" "${cfg.dataDir}/plugins.backup-$(date +%s)"
-            fi
-            
             rm -rf "${cfg.dataDir}/plugins"
             mkdir -p "${cfg.dataDir}/plugins/linux/amd64"
             cp -L ${pluginEnv}/plugins/linux/amd64/* "${cfg.dataDir}/plugins/linux/amd64/"
