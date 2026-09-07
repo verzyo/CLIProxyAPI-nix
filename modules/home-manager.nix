@@ -54,6 +54,36 @@ in
       '';
     };
 
+    authDir = lib.mkOption {
+      type = lib.types.path;
+      default = "${config.home.homeDirectory}/.cli-proxy-api";
+      defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/.cli-proxy-api"'';
+      description = "Directory for CLIProxyAPI OAuth and authentication tokens.";
+    };
+
+    oauth = lib.mkOption {
+      type = lib.types.listOf (lib.types.attrsOf lib.types.anything);
+      default = [];
+      description = ''
+        List of OAuth configurations for CLIProxyAPI.
+        Each item will be serialized to JSON and placed directly into authDir
+        (~/.cli-proxy-api) as '<type>-<email>.json' (or '<fileName>' if specified).
+        Files are placed directly (not symlinked) so they remain mutable
+        for token refreshes.
+      '';
+      example = lib.literalExpression ''
+        [
+          {
+            type = "antigravity";
+            email = "ae1koroblox@gmail.com";
+            project_id = "aicode-consumers";
+            refresh_token = "1//...";
+            disabled = false;
+          }
+        ]
+      '';
+    };
+
     lib.cliproxyapi = {
       injectSecret = lib.mkOption {
         type = lib.types.unspecified;
@@ -161,7 +191,42 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
+  config = lib.mkIf cfg.enable (let
+    oauthFiles = map (entry:
+      let
+        fileName = entry.fileName or (
+          if entry ? type && entry ? email then "${entry.type}-${entry.email}.json"
+          else if entry ? type then "${entry.type}.json"
+          else "${entry.name or "oauth"}.json"
+        );
+        data = builtins.removeAttrs entry [ "fileName" ];
+        src = pkgs.writeText fileName (builtins.toJSON data);
+      in {
+        inherit fileName src;
+      }
+    ) cfg.oauth;
+
+    syncOAuthScript = pkgs.writeShellScript "cliproxyapi-sync-oauth" ''
+      mkdir -p "${cfg.authDir}"
+      ${lib.concatMapStringsSep "\n" (item: ''
+        target="${cfg.authDir}/${item.fileName}"
+        if [ ! -f "$target" ]; then
+          cp -f "${item.src}" "$target"
+          chmod 600 "$target"
+
+          grep -oE '@@SECRET:[^@]+@@' "$target" 2>/dev/null | sort -u | while read -r match; do
+            secret_path="''${match#@@SECRET:}"
+            secret_path="''${secret_path%@@}"
+            if [ -f "$secret_path" ]; then
+              secret_val=$(cat "$secret_path")
+              escaped_val=$(printf "%s" "$secret_val" | sed -e 's/[\&|]/\\&/g')
+              sed -i "s|$match|$escaped_val|g" "$target"
+            fi
+          done
+        fi
+      '') oauthFiles}
+    '';
+  in {
     lib.cliproxyapi.injectSecret = path: "@@SECRET:${toString path}@@";
 
     assertions = [
@@ -185,11 +250,16 @@ in
 
     home.activation.cliproxyapi = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       $DRY_RUN_CMD mkdir -p "${cfg.dataDir}"
+      $DRY_RUN_CMD mkdir -p "${cfg.authDir}"
+      ${lib.optionalString (cfg.oauth != []) ''
+        $DRY_RUN_CMD ${syncOAuthScript}
+      ''}
     '';
 
     home.packages = [
       (pkgs.writeShellScriptBin "cliproxyapi" ''
         mkdir -p "${cfg.dataDir}"
+        mkdir -p "${cfg.authDir}"
         cd "${cfg.dataDir}" || exit 1
         exec ${lib.getExe cfg.package} "$@"
       '')
@@ -259,6 +329,11 @@ in
         preStartScript = pkgs.writeShellScript "cliproxyapi-prestart" ''
           mkdir -p ${cfg.dataDir}
           mkdir -p ${cfg.dataDir}/tmp
+          mkdir -p ${cfg.authDir}
+
+          ${lib.optionalString (cfg.oauth != []) ''
+            ${syncOAuthScript}
+          ''}
 
           if [ -f ${cfg.package}/share/cliproxyapi/config.example.yaml ]; then
             cp -f ${cfg.package}/share/cliproxyapi/config.example.yaml ${cfg.dataDir}/config.example.yaml
@@ -286,7 +361,8 @@ in
               secret_path="''${secret_path%@@}"
               if [ -f "$secret_path" ]; then
                 secret_val=$(cat "$secret_path")
-                sed -i "s|$match|$secret_val|g" ${cfg.dataDir}/config.yaml
+                escaped_val=$(printf "%s" "$secret_val" | sed -e 's/[\&|]/\\&/g')
+                sed -i "s|$match|$escaped_val|g" ${cfg.dataDir}/config.yaml
               fi
             done
           fi
@@ -330,8 +406,8 @@ in
 
         NoNewPrivileges = true;
         ProtectSystem = "strict";
-        ReadWritePaths = [ cfg.dataDir ];
+        ReadWritePaths = lib.unique [ cfg.dataDir cfg.authDir ];
       };
     };
-  };
+  });
 }
