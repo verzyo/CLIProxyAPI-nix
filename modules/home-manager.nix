@@ -183,9 +183,14 @@ in
       }
     ];
 
+    home.activation.cliproxyapi = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      $DRY_RUN_CMD mkdir -p "${cfg.dataDir}"
+    '';
+
     home.packages = [
       (pkgs.writeShellScriptBin "cliproxyapi" ''
-        cd ${cfg.dataDir} || exit 1
+        mkdir -p "${cfg.dataDir}"
+        cd "${cfg.dataDir}" || exit 1
         exec ${lib.getExe cfg.package} "$@"
       '')
     ];
