@@ -209,7 +209,18 @@ in
     syncOAuthScript = pkgs.writeShellScript "cliproxyapi-sync-oauth" ''
       mkdir -p "${cfg.authDir}"
       ${lib.concatMapStringsSep "\n" (item: ''
-        target="${cfg.authDir}/${item.fileName}"
+        resolved_fileName="${item.fileName}"
+        while [[ "$resolved_fileName" =~ @@SECRET:([^@]+)@@ ]]; do
+          secret_path="''${BASH_REMATCH[1]}"
+          if [ -f "$secret_path" ]; then
+            secret_val=$(cat "$secret_path")
+            resolved_fileName="''${resolved_fileName//@@SECRET:''${secret_path}@@/$secret_val}"
+          else
+            break
+          fi
+        done
+
+        target="${cfg.authDir}/$resolved_fileName"
         if [ ! -f "$target" ]; then
           cp -f "${item.src}" "$target"
           chmod 600 "$target"
